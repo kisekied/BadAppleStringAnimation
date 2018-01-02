@@ -1,4 +1,4 @@
-#BadAppleStringAnimation
+# BadAppleStringAnimation
 
 C语言版的BadApple字符动画
 
