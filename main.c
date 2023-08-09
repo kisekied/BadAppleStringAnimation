@@ -65,7 +65,7 @@ int main(int argc, char const *argv[])
 		framebuf[framesize - i] = '\0';
 
 	while(read(fd, framebuf, framesize - TAIL_CUT) > 0) {
-		system("clear");
+		printf("\033[0;0H");//move the cursor to the upper left corner
 		puts(framebuf);
 		lseek(fd, strlen(DELIM) + TAIL_CUT + 3, SEEK_CUR);
 		usleep(delay);
