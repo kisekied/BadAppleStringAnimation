@@ -49,7 +49,7 @@ int main(int argc, char const *argv[])
 
 	fd = open(PATH, O_RDONLY);
 	if(fd < 0) {
-		printf("error: open txt file failed");
+		printf("error: open txt file failed\n");
 		return EXIT_FAILURE;
 	}
 
@@ -65,7 +65,7 @@ int main(int argc, char const *argv[])
 		framebuf[framesize - i] = '\0';
 
 	while(read(fd, framebuf, framesize - TAIL_CUT) > 0) {
-		system("clear");
+		printf("\033[0;0H");//move the cursor to the upper left corner
 		puts(framebuf);
 		lseek(fd, strlen(DELIM) + TAIL_CUT + 3, SEEK_CUR);
 		usleep(delay);
@@ -84,23 +84,35 @@ int get_framesize(int fd)
 	int pagesize = getpagesize();
 	char* scanbuf = malloc(pagesize);
 	off_t i;
-	off_t lastline = 0;
+	off_t last_lineend;
 	off_t seek = 0;
 	ssize_t bytes_get;
 
-	printf("pagesize: %u\n", pagesize);
+	if(pagesize < strlen(DELIM)) {
+		printf("warning: one page is too small to buffer scan data\n");
+		pagesize = strlen(DELIM);
+	}
 
 	bytes_get = read(fd, scanbuf, pagesize);
 	if(bytes_get < 0) {
-		printf("error: read txt file failed");
+		printf("error: read txt file failed\n");
 		return -1;
 	}
 
 	while(bytes_get) {
+		last_lineend = -1;//if no "\n" is found in scanbuf, we need this value set instead of the value in last loop, set to -1 to increase speed in case pagesize = strlen(DELIM)
+
+		if(strncmp(DELIM, scanbuf, strlen(DELIM)) == 0) {//if nekomark is at the beginning of the scanbuf, we also need to return the result
+			printf("frame size: %u\n", seek - 1);
+			free(scanbuf);
+			lseek(fd, 0, SEEK_SET);//seek offset to the beginning before exiting function
+			return seek - 1;//seek-1 bytes before first "\nnekomark"
+		}
+
 		for(i = 0; i < bytes_get; i++) {
 			if(scanbuf[i] == '\n') {
-				lastline = i;
-				if(i < bytes_get - strlen(DELIM)) {
+				last_lineend = i;
+				if(bytes_get - i - 1 >= strlen(DELIM)) {//make sure we won't access memory that is not allocated
 					if(strncmp(DELIM, scanbuf + i + 1, strlen(DELIM)) == 0) {
 						printf("frame size: %u\n", seek + i);
 						free(scanbuf);
@@ -111,22 +123,24 @@ int get_framesize(int fd)
 			}
 		}
 
-		if(bytes_get < pagesize)//if the file isn't end with /n and we dont find any DELIM, the loop won't stop, so break if nothing to read
+		if(bytes_get < pagesize)//if the file isn't end with "/n" and we dont find any DELIM, the loop won't stop, so break if nothing to read
 			break;
 
-		if(pagesize - 1 - lastline < strlen(DELIM))
-			seek = lseek(fd, -(pagesize - 1 - lastline), SEEK_CUR);//seek to the character after last "\n" in scanbuf if there is no space for another strncmp after last "/n"
-		else
+		if(bytes_get - last_lineend - 1 < strlen(DELIM)) {
+			seek = seek + 1 + last_lineend;
+			lseek(fd, seek, SEEK_SET);//seek to the character after last "\n" in scanbuf if there is no space for another strncmp after last "/n"
+		} else {
 			seek = seek + pagesize;//we need to use seek for return value, so if we didn't do lseek, we need to update it
+		}
 
 		bytes_get = read(fd, scanbuf, pagesize);
 		if(bytes_get < 0) {
-			printf("error: read txt file failed");
+			printf("error: read txt file failed\n");
 			return -1;
 		}
 	}
 
-	printf("error: no %s found in file", DELIM);
+	printf("error: no %s found in file\n", DELIM);
 	free(scanbuf);
 	return -1;
 }
