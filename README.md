@@ -6,7 +6,7 @@ Bad Apple string animation in C.
 
 1. Clone this repo:
 ```bash
-git clone https://github.com/kisekied/BadAppleStringAnimation.git`
+git clone https://github.com/kisekied/BadAppleStringAnimation.git
 ```
 2. Open it in the terminal.
 3. Run the command: `make`.
